@@ -1,62 +1,53 @@
-import React, { useState, Suspense,useMemo } from 'react';
+import React, { Suspense } from 'react';
 import './App.css'
-import { RenderingNotifier } from './RenderingNotifier'
 
 function sleep (ms: number) {
   return new Promise(resolve =>  setTimeout(resolve,ms))
 }
 
-const AlwaysSuspended: React.VFC = () => {
-  console.log("aaaa");
-  throw sleep(1000);
-}
-
-const SometimeSuspended:React.VFC = () => {
-  if (Math.random() < 0.5) {
-    throw sleep(1000);
-  }
-  return <p>Hello World!!</p>
-}
-
+/** 1秒後に文字列を返す非同期関数 */
 async function fetchData1(): Promise<string> {
   await sleep(1000);
   return `Hello, ${(Math.random() * 1000).toFixed(0)}`;
 }
+const dataMap: Map<string, unknown> = new Map();
+function useData<T>(cacheKey: string, fetch: ()=>Promise<T>): T {
+  const cachedData = dataMap.get(cacheKey) as T | undefined; // as を使っているので危険だが、今回は良しとする。
+  if (cachedData === undefined) {
+    throw fetch().then((d) => dataMap.set(cacheKey, d));
+  }
+  return cachedData;
+}
 
- export const DataLoader: React.VFC = () => {
-   const [loading, setLoading] = useState(false);
-   const [data, setData] = useState<string | null>(null);
-
-  const _ = useMemo(() => {
-    if (loading) {
-      console.log("loading is true");
-    }
-    return 1;
-  }, [loading]);
-
-   // ローディングフラグが立っていてdataがまだ無ければローディングを開始する
-   if (loading && data === null) {
-     throw fetchData1().then(setData);
-   }
+/** suspendするコンポーネント */
+export const DataLoader1: React.VFC = () => {
+  const data = useData("aaaa",fetchData1);
    // データがあればそれを表示
    return (
      <div>
        <div>Data is {data}</div>
-       <button className="border p-1" onClick={() => setLoading(true)}>
-         load
-       </button>
+     </div>
+   );
+ };
+/** suspendするコンポーネント */
+export const DataLoader2: React.VFC = () => {
+  const data = useData("bbbb",fetchData1);
+   // データがあればそれを表示
+   return (
+     <div>
+       <div>Data is {data}</div>
      </div>
    );
  };
 
 
 function App() {
-  const [count, setCount] = useState(0);
   return (
     <div className="text-center">
       <h1 className="text-2xl">React App!</h1>
       <Suspense fallback={<p>...loading</p>}>
-        <DataLoader/>
+        <DataLoader1/>
+        <DataLoader2/>
       </Suspense>
     </div>
   )
